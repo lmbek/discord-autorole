@@ -69,13 +69,14 @@ func onReady(session *discordgo.Session, event *discordgo.Ready) {
 	guilds := session.State.Guilds
 	if len(guilds) > 0 {
 		guildID := guilds[0].ID
-		assignRoleToUser(session, guildID, "Chaosi", "TopSecretRole")
+		guildName := guilds[0].Name
+		assignRoleToUser(session, guildID, guildName, "Chaosi", "Customer")
 	} else {
 		fmt.Println("Error: No guilds available")
 	}
 }
 
-func assignRoleToUser(session *discordgo.Session, guildID, username, roleName string) {
+func assignRoleToUser(session *discordgo.Session, guildID, guildName, username, roleName string) {
 	// Find the member by username
 	members, err := session.GuildMembers(guildID, "", 1000)
 	if err != nil {
@@ -108,6 +109,7 @@ func assignRoleToUser(session *discordgo.Session, guildID, username, roleName st
 
 	// If the member and role are found, assign the role to the member
 	if member != nil && roleID != "" {
+		fmt.Printf("Guild name: %v, Guild ID: %v, member user name: %v, member user ID: %v, roleID: %v, roleName: %v\n", guildName, guildID, member.User.Username, member.User.ID, roleID, roleName)
 		err = session.GuildMemberRoleAdd(guildID, member.User.ID, roleID)
 		if err != nil {
 			fmt.Println("Error assigning role to user:", err)
