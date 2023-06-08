@@ -11,8 +11,17 @@ import (
 )
 
 type Data struct {
-	Token      string            `json:"token"`
-	InviteRole map[string]string `json:"inviteRole"` // Map to store invite links and their corresponding roles
+	Token string `json:"token"`
+}
+
+type InviteLink struct {
+	Name   string `json:"name"`
+	Value  string `json:"value"`
+	RoleID string `json:"roleID"`
+}
+
+type InviteRoleMap struct {
+	Links []InviteLink `json:"links"`
 }
 
 type MemberList struct {
@@ -20,6 +29,8 @@ type MemberList struct {
 	InviteCounters map[string]int
 	InviteRole     map[string]string
 }
+
+var inviteRoleMap InviteRoleMap
 
 func getTokenFromCredentials(filePath string) (string, error) {
 	data, err := os.ReadFile(filePath)
@@ -36,11 +47,28 @@ func getTokenFromCredentials(filePath string) (string, error) {
 	return jsonData.Token, nil
 }
 
-func getInviteRole(inviteLink string, inviteRoleMap map[string]string) string {
-	if role, ok := inviteRoleMap[inviteLink]; ok {
-		return role
+func getInviteRoleMapFromJSON(filePath string) (InviteRoleMap, error) {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return InviteRoleMap{}, err
 	}
-	return "" // Replace with the default role ID or name
+
+	var inviteRoleMap InviteRoleMap
+	err = json.Unmarshal(data, &inviteRoleMap)
+	if err != nil {
+		return InviteRoleMap{}, err
+	}
+
+	return inviteRoleMap, nil
+}
+
+func getInviteRole(inviteRoleMap InviteRoleMap, value string) string {
+	for _, link := range inviteRoleMap.Links {
+		if link.Value == value {
+			return link.RoleID
+		}
+	}
+	return ""
 }
 
 func onReady(session *discordgo.Session, event *discordgo.Ready, memberList *MemberList) {
@@ -61,7 +89,7 @@ func onReady(session *discordgo.Session, event *discordgo.Ready, memberList *Mem
 	}
 
 	for _, member := range members {
-		memberList.Members[member.User.Username] = true
+		memberList.Members[member.User.ID] = true
 	}
 
 	invites, err := session.GuildInvites(guildID)
@@ -71,8 +99,9 @@ func onReady(session *discordgo.Session, event *discordgo.Ready, memberList *Mem
 	}
 
 	for _, invite := range invites {
+		//fmt.Printf("Invite code: %v \n", invite.Code)
 		memberList.InviteCounters[invite.Code] = invite.Uses
-		memberList.InviteRole[invite.Code] = "1108944121630044172" // Replace "roleID" with the corresponding role ID or name
+		memberList.InviteRole[invite.Code] = "" // Replace "roleID" with the corresponding role ID or name
 	}
 
 	fmt.Println("Existing members:")
@@ -88,7 +117,7 @@ func onEvent(session *discordgo.Session, event interface{}, memberList *MemberLi
 			return
 		}
 
-		fmt.Println("new message...")
+		//fmt.Println("new message...")
 		authorID := ev.Author.ID
 
 		if memberList.Members[authorID] {
@@ -113,37 +142,38 @@ func onEvent(session *discordgo.Session, event interface{}, memberList *MemberLi
 		}
 
 		if usedInvite == nil {
-			fmt.Println("No invite found for the user:", ev.Author.Username)
+			fmt.Println("No invite found for the user:", ev.Author.ID)
 			return
 		}
 
 		inviteCode := usedInvite.Code
-		fmt.Print("invite code:")
+		fmt.Print("invite code: ")
 		fmt.Println(inviteCode)
-		role := getInviteRole(inviteCode, memberList.InviteRole)
-		if role == "" {
+		roleID := getInviteRole(inviteRoleMap, inviteCode)
+		if roleID == "" {
+			fmt.Println("No role assigned for invite code:", inviteCode)
+			return
+		}
+
+		if roleID == "" {
 			fmt.Println("No role assigned for invite link:", inviteCode)
 			return
 		}
 		guilds := session.State.Guilds
 		if len(guilds) > 0 {
 			guildID := guilds[0].ID
-			assignRoleToUser(session, guildID, ev.Author.Username, "Customer")
+			assignRoleToUser(session, guildID, ev.Author.ID, roleID)
 		} else {
 			fmt.Println("Error: No guilds available")
 		}
 
-		//fmt.Println(guildID)
-		//fmt.Println(ev.Author.Username)
-		//fmt.Println(role)
-		/*
-			err = session.GuildMemberRoleAdd(guildID, ev.Author.ID, "1108944121630044172")
-			if err != nil {
-				fmt.Println("Error assigning role to user:", err)
-				return
-			}
-		*/
-		fmt.Printf("Assigned role '%s' to user %s\n", role, ev.Author.Username)
+		err = session.GuildMemberRoleAdd(guildID, ev.Author.ID, roleID)
+		if err != nil {
+			fmt.Println("Error assigning role to user:", err)
+			return
+		}
+
+		fmt.Printf("Assigned role '%s' to user %s\n", roleID, ev.Author.ID)
 	}
 }
 
@@ -156,6 +186,11 @@ func main() {
 	session, err := discordgo.New("Bot " + token)
 	if err != nil {
 		log.Fatal("Error creating Discord session:", err)
+	}
+
+	inviteRoleMap, err = getInviteRoleMapFromJSON("invite-roles.json")
+	if err != nil {
+		log.Fatal("Error reading invited-roles.json:", err)
 	}
 
 	memberList := &MemberList{
@@ -186,8 +221,8 @@ func main() {
 	session.Close()
 }
 
-func assignRoleToUser(session *discordgo.Session, guildID, username, roleName string) {
-	// Find the member by username
+func assignRoleToUser(session *discordgo.Session, guildID string, userID string, roleID string) {
+	// Find the member by ID
 	members, err := session.GuildMembers(guildID, "", 1000)
 	if err != nil {
 		fmt.Println("Error retrieving guild members:", err)
@@ -196,7 +231,7 @@ func assignRoleToUser(session *discordgo.Session, guildID, username, roleName st
 
 	var member *discordgo.Member
 	for _, m := range members {
-		if m.User.Username == username {
+		if m.User.ID == userID {
 			member = m
 			break
 		}
@@ -209,9 +244,8 @@ func assignRoleToUser(session *discordgo.Session, guildID, username, roleName st
 		return
 	}
 
-	var roleID string
 	for _, role := range roles {
-		if role.Name == roleName {
+		if role.ID == roleID {
 			roleID = role.ID
 			break
 		}
@@ -225,7 +259,7 @@ func assignRoleToUser(session *discordgo.Session, guildID, username, roleName st
 			fmt.Println("Error assigning role to user:", err)
 			return
 		}
-		fmt.Println("Assigned role", roleName, "to user", username)
+		fmt.Println("Assigned role", roleID, "to user", userID)
 	} else {
 		fmt.Println("Error: Member or role not found")
 	}
