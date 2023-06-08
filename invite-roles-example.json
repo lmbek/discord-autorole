@@ -1,0 +1,19 @@
+{
+  "links": [
+    {
+      "name": "Customer",
+      "value": "1HJk5bsnY8",
+      "roleID": "12345"
+    },
+    {
+      "name": "Partner",
+      "value": "2HJk5bsnY8",
+      "roleID": "12345"
+    },
+    {
+      "name": "Guest",
+      "value": "3HJk5bsnY8",
+      "roleID": "12345"
+    }
+  ]
+}
