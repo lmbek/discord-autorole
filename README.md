@@ -19,7 +19,7 @@ Now you have a working bot, you can use on your server, that automatically assig
 
 I use it for my own discord server
 
-This bot has 3 parts:
+This bot has 5 parts:
 1) Connect-test
    * Connects to discord and disconnect right after
 2) onready-give-role
@@ -28,7 +28,10 @@ This bot has 3 parts:
    * Connects to discord and makes a list of users in the server/guild (only works with 1 server/guild so far), then it use that list of users as data
    * Adds an event-listener for OnEvent -> CreateMessage as this was the only way i could register the new user. It uses the data from the OnReady event with all the users, then it sees the difference between the users. It does this to find the invite link, as the invite link should be the difference between before and now (by checking every member). This operation is custom made and heavy, but it was necessary because i could not get invite link otherwise.
    * Then after it got the invite link for the new user, it checks what invite link was used and assign the role id to the user. This only works when joining the first time or not being member of server/guild on startup of script, it will work again after restarting script.
-
+4) autorole-onjoin
+   * This one adds a role to new users when they join, based on invite link
+5) autorole-new-room-onjoin
+   * This one i use in production for my Beksoft discord server. It automatically assigns a room to the new user and assign them a role based on invite link. Its the most advanced of all the 5
 ## Please Note
 invite-roles.json: links.value is the value from the discord link that is shared with no expire date. It needs to be manually added in just like role name and role id
 
