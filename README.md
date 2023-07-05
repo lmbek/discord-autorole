@@ -20,7 +20,7 @@ Now you have a working bot, you can use on your server, that automatically assig
 I use it for my own discord server
 
 This bot has 5 parts:
-1) Connect-test
+1) connect-test
    * Connects to discord and disconnect right after
 2) onready-give-role
    * Is a hardcoded script that connects to discord and gives a certain user a certain role, then it runs until being interrupted by user.
